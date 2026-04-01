@@ -41,6 +41,7 @@ struct ReminderItem: Encodable {
     let completionDate: String?
     let notes: String?
     let isRecurring: Bool
+    let recurrence: String?  // Human-readable recurrence description, e.g. "every 2 weeks"
 }
 
 struct ResultResponse: Encodable {
@@ -143,6 +144,41 @@ func reminderToItem(_ r: EKReminder) -> ReminderItem {
         completionStr = isoFormatter.string(from: cd)
     }
 
+    // Build human-readable recurrence description
+    var recurrenceStr: String? = nil
+    if let rules = r.recurrenceRules, let rule = rules.first {
+        let freqName: String
+        switch rule.frequency {
+        case .daily: freqName = "day"
+        case .weekly: freqName = "week"
+        case .monthly: freqName = "month"
+        case .yearly: freqName = "year"
+        @unknown default: freqName = "?"
+        }
+        if rule.interval == 1 {
+            // "daily", "weekly", "monthly", "yearly"
+            recurrenceStr = freqName == "day" ? "daily" : freqName + "ly"
+        } else {
+            recurrenceStr = "every \(rule.interval) \(freqName)s"
+        }
+        // Add day-of-week info for weekly rules
+        if rule.frequency == .weekly, let days = rule.daysOfTheWeek, !days.isEmpty {
+            let dayNames = days.map { d -> String in
+                switch d.dayOfTheWeek {
+                case .sunday: return "Sun"
+                case .monday: return "Mon"
+                case .tuesday: return "Tue"
+                case .wednesday: return "Wed"
+                case .thursday: return "Thu"
+                case .friday: return "Fri"
+                case .saturday: return "Sat"
+                @unknown default: return "?"
+                }
+            }
+            recurrenceStr! += " on " + dayNames.joined(separator: ", ")
+        }
+    }
+
     return ReminderItem(
         id: r.calendarItemIdentifier,
         title: r.title ?? "",
@@ -153,7 +189,8 @@ func reminderToItem(_ r: EKReminder) -> ReminderItem {
         dueDate: dueDateStr,
         completionDate: completionStr,
         notes: r.notes,
-        isRecurring: (r.recurrenceRules ?? []).count > 0
+        isRecurring: (r.recurrenceRules ?? []).count > 0,
+        recurrence: recurrenceStr
     )
 }
 
@@ -324,6 +361,11 @@ struct CreateArgs: Decodable {
     let due: String?
     let notes: String?
     let priority: String?
+    // Recurrence (optional)
+    let rruleFreq: String?    // DAILY, WEEKLY, MONTHLY, YEARLY
+    let rruleInterval: Int?   // defaults to 1
+    let rruleDays: [Int]?     // Days of week: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+    let rruleEnd: String?     // End date for recurrence (YYYY-MM-DD)
 }
 
 func createReminder(_ store: EKEventStore, _ args: CreateArgs) {
@@ -343,6 +385,47 @@ func createReminder(_ store: EKEventStore, _ args: CreateArgs) {
     if let dueStr = args.due, let dueDate = dateFormatter.date(from: dueStr) {
         let comps = Calendar.current.dateComponents([.year, .month, .day], from: dueDate)
         reminder.dueDateComponents = comps
+    }
+
+    // Set recurrence if specified
+    if let freqStr = args.rruleFreq {
+        let freq: EKRecurrenceFrequency
+        switch freqStr.uppercased() {
+        case "DAILY": freq = .daily
+        case "WEEKLY": freq = .weekly
+        case "MONTHLY": freq = .monthly
+        case "YEARLY": freq = .yearly
+        default:
+            output(ResultResponse(success: false, data: nil, error: "Invalid frequency: \(freqStr). Use: daily, weekly, monthly, yearly"))
+            return
+        }
+        let interval = args.rruleInterval ?? 1
+
+        var daysOfWeek: [EKRecurrenceDayOfWeek]? = nil
+        if let days = args.rruleDays, !days.isEmpty {
+            daysOfWeek = days.compactMap { dayNum -> EKRecurrenceDayOfWeek? in
+                guard let weekday = EKWeekday(rawValue: dayNum) else { return nil }
+                return EKRecurrenceDayOfWeek(weekday)
+            }
+        }
+
+        var recurrenceEnd: EKRecurrenceEnd? = nil
+        if let endStr = args.rruleEnd, let endDate = dateFormatter.date(from: endStr) {
+            recurrenceEnd = EKRecurrenceEnd(end: endDate)
+        }
+
+        let rule = EKRecurrenceRule(
+            recurrenceWith: freq,
+            interval: interval,
+            daysOfTheWeek: daysOfWeek,
+            daysOfTheMonth: nil,
+            monthsOfTheYear: nil,
+            weeksOfTheYear: nil,
+            daysOfTheYear: nil,
+            setPositions: nil,
+            end: recurrenceEnd
+        )
+        reminder.addRecurrenceRule(rule)
     }
 
     do {

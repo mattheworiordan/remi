@@ -40,6 +40,7 @@
   "dependencies": {
     "better-sqlite3": "^12.8.0",
     "chalk": "^5.4.1",
+    "chrono-node": "^2.9.0",
     "commander": "^14.0.0",
     "dayjs": "^1.11.13"
   },

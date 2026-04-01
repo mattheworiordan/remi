@@ -203,8 +203,10 @@ function formatReminderLine(r: Reminder, opts?: OutputRemindersOpts): string {
 		if (dateStr) badges.push(dateStr);
 	}
 
-	// Recurring
-	if (r.isRecurring) {
+	// Recurring — show schedule if available
+	if (r.recurrence) {
+		badges.push(chalk.blue(`↻ ${r.recurrence}`));
+	} else if (r.isRecurring) {
 		badges.push(chalk.blue("↻"));
 	}
 

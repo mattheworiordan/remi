@@ -31,7 +31,10 @@ remi list "Groceries"
 remi add "Groceries" "Buy milk"
 
 # Add with section, due date, and priority
-remi add "Groceries" "Fresh basil" --section "Produce" --due 2026-04-15 --priority high
+remi add "Groceries" "Fresh basil" --section "Produce" --due "next tuesday" --priority high
+
+# Add a recurring reminder
+remi add "Dogs" "Flea treatment" --due 2026-04-28 --repeat monthly
 
 # What's due today?
 remi today
@@ -42,24 +45,37 @@ remi overdue
 
 ## Commands
 
-### Lists
+### Queries — what's due?
 
 ```bash
-remi lists                              # List all reminder lists
+remi today                   # Due today
+remi overdue                 # Past due
+remi upcoming --days 7       # Due in the next 7 days
+```
+
+### Browse
+
+```bash
 remi list "Groceries"                   # Show reminders in a list
 remi list "Groceries" --include-completed
-remi create-list "Home Projects"
-remi delete-list "Home Projects" --confirm
+remi lists                              # List all reminder lists
+remi search "milk"                      # Search across all lists
 ```
 
-### Reminders
+### Task actions
 
 ```bash
-remi add "Work" "Review report" --due 2026-04-15 --priority high --notes "Q1 numbers"
+remi add "Work" "Review report" --due "next friday" --priority high --notes "Q1 numbers"
+remi add "Work" "Team standup" --due tomorrow --repeat daily
+remi add "Work" "Sprint review" --repeat "every 2 weeks"
 remi complete "Work" "Review report"
-remi update "Work" "Review report" --due 2026-04-20
+remi update "Work" "Review report" --due "in 3 days"
 remi delete "Work" "Review report" --confirm
 ```
+
+Dates accept YYYY-MM-DD or natural language: `tomorrow`, `next tuesday`, `in 3 days`.
+
+Recurrence supports: `daily`, `weekly`, `monthly`, `yearly`, `every N days/weeks/months`, `every 2 weeks on monday,friday`.
 
 ### Sections
 
@@ -67,28 +83,41 @@ This is what makes remi unique. No other CLI supports Apple Reminders sections w
 
 ```bash
 remi sections "Groceries"                          # List sections
+remi move "Groceries" "Bananas" --to-section "Dairy" # Move between sections
 remi create-section "Groceries" "Produce"          # Create a section
 remi add "Groceries" "Bananas" --section "Produce" # Add to a section
-remi move "Groceries" "Bananas" --to-section "Dairy" # Move between sections
 remi delete-section "Groceries" "Produce"          # Delete a section
 ```
 
 Sections sync to iCloud via resolution token maps (CRDT-style vector clocks). See the [technical design](docs/TECHNICAL_DESIGN.md) for details.
 
-### Queries
+### List management
 
 ```bash
-remi today                   # Due today
-remi overdue                 # Past due
-remi upcoming --days 7       # Due in the next 7 days
-remi search "milk"           # Search across all lists
+remi create-list "Home Projects"
+remi delete-list "Home Projects" --confirm
 ```
 
-### Diagnostics
+### System
 
 ```bash
 remi doctor          # Check system health
 remi doctor --db     # Show database stats
+```
+
+### Shell completions
+
+Homebrew installs completions automatically. For manual setup:
+
+```bash
+# zsh (uses Homebrew's completions dir if available, otherwise system dir)
+remi completions zsh > $(brew --prefix 2>/dev/null || echo /usr/local)/share/zsh/site-functions/_remi
+
+# bash
+remi completions bash > /usr/local/etc/bash_completion.d/remi
+
+# fish
+remi completions fish > ~/.config/fish/completions/remi.fish
 ```
 
 ## JSON output

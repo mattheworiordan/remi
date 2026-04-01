@@ -129,6 +129,10 @@ export async function createReminder(opts: {
 	due?: string;
 	notes?: string;
 	priority?: string;
+	rruleFreq?: string;
+	rruleInterval?: number;
+	rruleDays?: number[];
+	rruleEnd?: string;
 }): Promise<string> {
 	return runSwiftCommand<string>("create", opts);
 }

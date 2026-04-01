@@ -22,6 +22,7 @@ export interface Reminder {
 	notes?: string;
 	section?: string;
 	isRecurring?: boolean;
+	recurrence?: string;
 	flagged?: boolean;
 }
 

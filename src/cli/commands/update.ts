@@ -1,3 +1,4 @@
+import { parseDate } from "../../core/dateparse.js";
 import * as eventkit from "../../core/eventkit.js";
 import { findReminderByTitle } from "../../core/lookup.js";
 import { outputMessage } from "../output.js";
@@ -11,7 +12,7 @@ export async function updateCommand(
 	await eventkit.editReminder({
 		id: reminder.id,
 		title: opts.title,
-		due: opts.due,
+		due: opts.due ? parseDate(opts.due) : undefined,
 		clearDue: opts.clearDue,
 		notes: opts.notes,
 		priority: opts.priority,
