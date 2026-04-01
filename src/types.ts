@@ -22,6 +22,7 @@ export interface Reminder {
 	notes?: string;
 	section?: string;
 	isRecurring?: boolean;
+	flagged?: boolean;
 }
 
 /** A section within a reminder list */

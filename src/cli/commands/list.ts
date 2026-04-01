@@ -7,6 +7,8 @@ export async function listCommand(
 ): Promise<void> {
 	const filter = opts.includeCompleted ? "all" : "incomplete";
 	const reminders = await getReminders({ list: name, filter });
-	// Section filtering will be wired in Phase 3
-	outputReminders(reminders, name);
+	outputReminders(reminders, name, {
+		context: "list",
+		sortByDate: true,
+	});
 }

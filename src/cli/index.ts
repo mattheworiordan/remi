@@ -2,7 +2,7 @@
 
 import { Command } from "commander";
 import { RemiCommandError } from "../core/errors.js";
-import { outputError, setJsonMode } from "./output.js";
+import { outputError, setJsonMode, setVerboseMode } from "./output.js";
 
 const program = new Command();
 
@@ -11,10 +11,14 @@ program
 	.description("Fast, reliable CLI for Apple Reminders with section support and iCloud sync")
 	.version("0.1.0")
 	.option("--json", "Output in JSON format for machine consumption")
+	.option("-v, --verbose", "Show additional details (notes preview, full dates)")
 	.hook("preAction", (thisCommand) => {
 		const opts = thisCommand.opts();
 		if (opts.json) {
 			setJsonMode(true);
+		}
+		if (opts.verbose) {
+			setVerboseMode(true);
 		}
 	});
 
