@@ -1,9 +1,15 @@
-import { ErrorCode, RemiCommandError } from "../../core/errors.js";
+import { assignToSection } from "../../core/membership.js";
+import { outputMessage } from "../output.js";
 
 export async function moveCommand(
-	_list: string,
-	_title: string,
-	_opts: { toSection: string },
+	list: string,
+	title: string,
+	opts: { toSection: string },
 ): Promise<void> {
-	throw new RemiCommandError(ErrorCode.UNKNOWN, "Not implemented yet — coming in Phase 3");
+	const { warning } = await assignToSection(list, title, opts.toSection);
+	let msg = `Moved "${title}" to section "${opts.toSection}" in "${list}"`;
+	if (warning) {
+		msg += ` (note: ${warning})`;
+	}
+	outputMessage(msg);
 }

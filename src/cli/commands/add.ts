@@ -1,4 +1,5 @@
 import { createReminder } from "../../core/eventkit.js";
+import { assignToSection } from "../../core/membership.js";
 import { outputMessage } from "../output.js";
 
 export async function addCommand(
@@ -14,10 +15,14 @@ export async function addCommand(
 		notes: opts.notes,
 	});
 
-	// Section assignment will be wired in Phase 3
+	let warning: string | undefined;
 	if (opts.section) {
-		// TODO: Phase 3 — assign to section after creation
+		const result = await assignToSection(list, title, opts.section);
+		warning = result.warning;
 	}
 
-	outputMessage(`Added "${title}" to "${list}"`, { id });
+	let msg = `Added "${title}" to "${list}"`;
+	if (opts.section) msg += ` in section "${opts.section}"`;
+	if (warning) msg += ` (note: ${warning})`;
+	outputMessage(msg, { id });
 }

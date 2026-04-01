@@ -1,5 +1,7 @@
-import { ErrorCode, RemiCommandError } from "../../core/errors.js";
+import { deleteSection } from "../../core/reminderkit.js";
+import { outputMessage } from "../output.js";
 
-export async function deleteSectionCommand(_list: string, _name: string): Promise<void> {
-	throw new RemiCommandError(ErrorCode.UNKNOWN, "Not implemented yet — coming in Phase 3");
+export async function deleteSectionCommand(list: string, name: string): Promise<void> {
+	await deleteSection(list, name);
+	outputMessage(`Deleted section "${name}" from "${list}"`);
 }

@@ -1,5 +1,7 @@
-import { ErrorCode, RemiCommandError } from "../../core/errors.js";
+import { createSection } from "../../core/reminderkit.js";
+import { outputMessage } from "../output.js";
 
-export async function createSectionCommand(_list: string, _name: string): Promise<void> {
-	throw new RemiCommandError(ErrorCode.UNKNOWN, "Not implemented yet — coming in Phase 3");
+export async function createSectionCommand(list: string, name: string): Promise<void> {
+	await createSection(list, name);
+	outputMessage(`Created section "${name}" in "${list}"`);
 }
