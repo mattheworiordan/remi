@@ -1,0 +1,20 @@
+import * as eventkit from "../../core/eventkit.js";
+import { findReminderByTitle } from "../../core/lookup.js";
+import { outputMessage } from "../output.js";
+
+export async function updateCommand(
+	list: string,
+	title: string,
+	opts: { title?: string; due?: string; clearDue?: boolean; priority?: string; notes?: string },
+): Promise<void> {
+	const reminder = await findReminderByTitle(list, title);
+	await eventkit.editReminder({
+		id: reminder.id,
+		title: opts.title,
+		due: opts.due,
+		clearDue: opts.clearDue,
+		notes: opts.notes,
+		priority: opts.priority,
+	});
+	outputMessage(`Updated "${reminder.title}" in "${list}"`);
+}

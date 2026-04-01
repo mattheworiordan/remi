@@ -1,0 +1,54 @@
+{
+  "name": "@mattheworiordan/remi",
+  "version": "0.1.0",
+  "description": "Fast, reliable CLI for Apple Reminders with section support and iCloud sync",
+  "type": "module",
+  "bin": {
+    "remi": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --project integration",
+    "lint": "biome check src/ tests/",
+    "lint:fix": "biome check --write src/ tests/",
+    "build:swift": "bash src/swift/build.sh",
+    "prepare": "npm run build:swift"
+  },
+  "keywords": [
+    "apple-reminders",
+    "reminders",
+    "cli",
+    "macos",
+    "icloud",
+    "sections",
+    "eventkit",
+    "mcp"
+  ],
+  "author": "Matthew O'Riordan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattheworiordan/remi.git"
+  },
+  "engines": {
+    "node": ">=18",
+    "os": "darwin"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "dayjs": "^1.11.13"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.3",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}
