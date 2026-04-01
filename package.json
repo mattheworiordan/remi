@@ -11,7 +11,7 @@
     "dev": "tsx src/cli/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --project integration",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "lint": "biome check src/ tests/",
     "lint:fix": "biome check --write src/ tests/",
     "build:swift": "bash src/swift/build.sh",
