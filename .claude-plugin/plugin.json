@@ -1,0 +1,7 @@
+{
+  "name": "remi",
+  "description": "Apple Reminders CLI with section support and iCloud sync",
+  "author": {
+    "name": "Matthew O'Riordan"
+  }
+}
