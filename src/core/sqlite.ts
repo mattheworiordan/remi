@@ -35,7 +35,25 @@ export function findRemindersDbPath(): string {
 		);
 	}
 
-	const sqliteFiles = readdirSync(STORES_DIR).filter(
+	let dirContents: string[];
+	try {
+		dirContents = readdirSync(STORES_DIR);
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		if (msg.includes("EPERM") || msg.includes("operation not permitted")) {
+			throw new RemiCommandError(
+				ErrorCode.PERMISSION_DENIED,
+				"Cannot access Reminders database — permission denied",
+				"Section features require filesystem access. Grant Full Disk Access to your terminal app in System Settings > Privacy & Security > Full Disk Access. Basic reminder operations (without sections) work with just Reminders access.",
+			);
+		}
+		throw new RemiCommandError(
+			ErrorCode.DB_NOT_FOUND,
+			`Cannot read Reminders data directory: ${msg}`,
+		);
+	}
+
+	const sqliteFiles = dirContents.filter(
 		(f) => f.endsWith(".sqlite") && !f.includes("-wal") && !f.includes("-shm"),
 	);
 

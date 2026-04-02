@@ -182,6 +182,14 @@ program
 // -- System --
 
 program
+	.command("authorize")
+	.description("Request Reminders access permission")
+	.action(async () => {
+		const { authorizeCommand } = await import("./commands/authorize.js");
+		await authorizeCommand();
+	});
+
+program
 	.command("doctor")
 	.description("Check system health and diagnostics")
 	.option("--sync", "Verify sync status")

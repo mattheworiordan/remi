@@ -7,11 +7,12 @@
     "remi": "./dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/cli/index.js",
     "dev": "tsx src/cli/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:soak": "echo '\nSoak Test: Cross-device sync verification\n=========================================\nCopy the prompt from tests/soak/SOAK_TEST.md and paste it into\na Claude Code session with computer-use MCP connected.\n\nOr run: cat tests/soak/SOAK_TEST.md\n'",
     "lint": "biome check src/ tests/",
     "lint:fix": "biome check --write src/ tests/",
     "build:swift": "bash src/swift/build.sh",

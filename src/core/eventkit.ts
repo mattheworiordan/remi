@@ -14,24 +14,39 @@ import type { Reminder, ReminderList } from "../types.js";
 import { ErrorCode, RemiCommandError } from "./errors.js";
 
 const execFileAsync = promisify(execFile);
-const SWIFT_PATH = "/usr/bin/swift";
 const TIMEOUT_MS = 30000;
 
-function findHelperScript(): string {
+/**
+ * Find the reminders-helper binary (preferred) or fall back to interpreted Swift script.
+ *
+ * The compiled binary has an embedded Info.plist with NSRemindersUsageDescription,
+ * so macOS attributes the Reminders permission to "remi" rather than the terminal app.
+ */
+function findHelper(): { path: string; isCompiled: boolean } {
 	const currentDir = dirname(fileURLToPath(import.meta.url));
 
-	// From dist/core/ -> src/swift/
-	const fromDist = join(currentDir, "../../src/swift/reminders-helper.swift");
-	// From src/core/ -> src/swift/
-	const fromSrc = join(currentDir, "../swift/reminders-helper.swift");
+	// Prefer compiled binary (has Info.plist for proper permissions)
+	const binaryPaths = [
+		join(currentDir, "../reminders-helper"), // From dist/core/ -> dist/reminders-helper
+		join(currentDir, "../../dist/reminders-helper"), // From src/core/ -> dist/reminders-helper
+	];
+	for (const p of binaryPaths) {
+		if (existsSync(p)) return { path: p, isCompiled: true };
+	}
 
-	if (existsSync(fromSrc)) return fromSrc;
-	if (existsSync(fromDist)) return fromDist;
+	// Fall back to interpreted Swift script
+	const scriptPaths = [
+		join(currentDir, "../../src/swift/reminders-helper.swift"), // From dist/core/
+		join(currentDir, "../swift/reminders-helper.swift"), // From src/core/
+	];
+	for (const p of scriptPaths) {
+		if (existsSync(p)) return { path: p, isCompiled: false };
+	}
 
 	throw new RemiCommandError(
 		ErrorCode.SWIFT_NOT_FOUND,
-		"Swift helper script not found",
-		"Ensure remi is installed correctly. The file reminders-helper.swift should be in src/swift/.",
+		"reminders-helper not found",
+		"Run: npm run build:swift",
 	);
 }
 
@@ -42,14 +57,25 @@ interface SwiftResult<T> {
 }
 
 async function runSwift<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-	const scriptPath = findHelperScript();
-	const cmdArgs = [scriptPath, command];
+	const helper = findHelper();
+
+	let execPath: string;
+	let cmdArgs: string[];
+
+	if (helper.isCompiled) {
+		execPath = helper.path;
+		cmdArgs = [command];
+	} else {
+		execPath = "/usr/bin/swift";
+		cmdArgs = [helper.path, command];
+	}
+
 	if (args) {
 		cmdArgs.push(JSON.stringify(args));
 	}
 
 	try {
-		const { stdout } = await execFileAsync(SWIFT_PATH, cmdArgs, {
+		const { stdout } = await execFileAsync(execPath, cmdArgs, {
 			timeout: TIMEOUT_MS,
 			env: { ...process.env },
 		});
@@ -93,11 +119,11 @@ async function runSwiftCommand<T = string>(
 		if (msg.includes("not found")) {
 			throw new RemiCommandError(ErrorCode.LIST_NOT_FOUND, msg);
 		}
-		if (msg.includes("access denied")) {
+		if (msg.includes("access denied") || msg.includes("denied")) {
 			throw new RemiCommandError(
 				ErrorCode.PERMISSION_DENIED,
-				msg,
-				"Grant Reminders access in System Settings > Privacy & Security > Reminders",
+				"Reminders access not granted",
+				"Run: remi authorize (then check System Settings > Privacy & Security > Reminders)",
 			);
 		}
 		throw new RemiCommandError(ErrorCode.SWIFT_EXECUTION_FAILED, msg);

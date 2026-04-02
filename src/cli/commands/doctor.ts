@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import chalk from "chalk";
-import { findRemindersDbPath, getDb } from "../../core/sqlite.js";
+import { dbFindDb, dbStats } from "../../core/reminderkit.js";
 import { isJsonMode, outputSuccess } from "../output.js";
 
 const execFileAsync = promisify(execFile);
@@ -59,16 +59,29 @@ export async function doctorCommand(opts: { sync?: boolean; db?: boolean }): Pro
 		});
 	}
 
-	// Check section-helper binary
+	// Check compiled Swift helpers
 	const { dirname: dirnameFn } = await import("node:path");
 	const { fileURLToPath } = await import("node:url");
 	const currentDir = dirnameFn(fileURLToPath(import.meta.url));
-	// From dist/cli/commands/ -> dist/section-helper
-	const sectionHelperPaths = [
-		join(currentDir, "../../section-helper"),
-		join(currentDir, "../../../dist/section-helper"),
-	];
-	const sectionHelperExists = sectionHelperPaths.some(existsSync);
+	const helperDir = [join(currentDir, "../.."), join(currentDir, "../../../dist")];
+
+	const remindersHelperExists = helperDir.some((d) => existsSync(join(d, "reminders-helper")));
+	if (remindersHelperExists) {
+		checks.push({
+			name: "reminders-helper",
+			status: "ok",
+			message: "Compiled binary with permissions",
+		});
+	} else {
+		checks.push({
+			name: "reminders-helper",
+			status: "warn",
+			message: "Not compiled — using interpreted Swift (permissions may be attributed to terminal)",
+			detail: "Run: npm run build:swift",
+		});
+	}
+
+	const sectionHelperExists = helperDir.some((d) => existsSync(join(d, "section-helper")));
 	if (sectionHelperExists) {
 		checks.push({ name: "section-helper", status: "ok", message: "Compiled binary found" });
 	} else {
@@ -80,75 +93,57 @@ export async function doctorCommand(opts: { sync?: boolean; db?: boolean }): Pro
 		});
 	}
 
-	// Check Reminders database
+	// Check Reminders database (via compiled binary — uses its own permissions)
 	try {
-		const dbPath = findRemindersDbPath();
+		const dbPath = await dbFindDb();
 		checks.push({ name: "Reminders database", status: "ok", message: "Found", detail: dbPath });
 
 		if (opts.db) {
-			const db = getDb();
-			const reminderCount = (
-				db
-					.prepare("SELECT COUNT(*) as cnt FROM ZREMCDREMINDER WHERE ZMARKEDFORDELETION = 0")
-					.get() as {
-					cnt: number;
-				}
-			).cnt;
-			const listCount = (
-				db
-					.prepare("SELECT COUNT(*) as cnt FROM ZREMCDBASELIST WHERE ZMARKEDFORDELETION = 0")
-					.get() as {
-					cnt: number;
-				}
-			).cnt;
-			const sectionCount = (
-				db
-					.prepare("SELECT COUNT(*) as cnt FROM ZREMCDBASESECTION WHERE ZMARKEDFORDELETION = 0")
-					.get() as {
-					cnt: number;
-				}
-			).cnt;
+			const stats = await dbStats();
 			checks.push({
 				name: "Database stats",
 				status: "ok",
-				message: `${listCount} lists, ${sectionCount} sections, ${reminderCount} reminders`,
-				detail: dbPath,
+				message: `${stats.lists} lists, ${stats.sections} sections, ${stats.reminders} reminders`,
+				detail: stats.dbPath,
 			});
 		}
 	} catch (err) {
+		const errMsg = err instanceof Error ? err.message : "Not found";
 		checks.push({
 			name: "Reminders database",
-			status: "fail",
-			message: err instanceof Error ? err.message : "Not found",
-			detail: "Ensure Apple Reminders is set up with at least one reminder",
+			status: "warn",
+			message: `Not accessible (${errMsg})`,
+			detail: "Run: remi authorize (section features need Full Disk Access for your terminal app)",
 		});
 	}
 
-	// Check EventKit permissions
+	// Check EventKit permissions (via compiled reminders-helper, same binary used by all commands)
 	try {
-		const { stdout } = await execFileAsync(
-			"/usr/bin/swift",
-			[
-				"-e",
-				'import EventKit; let s = EKEventStore(); print(s.calendars(for: .reminder).count > 0 ? "ok" : "no_access")',
-			],
-			{ timeout: 15000 },
-		);
-		if (stdout.trim() === "ok") {
-			checks.push({ name: "Reminders access", status: "ok", message: "Granted" });
+		const { listLists } = await import("../../core/eventkit.js");
+		const lists = await listLists();
+		const count = Array.isArray(lists) ? lists.length : 0;
+		if (count > 0) {
+			checks.push({
+				name: "Reminders access",
+				status: "ok",
+				message: `Granted (${count} lists)`,
+			});
 		} else {
+			// 0 lists usually means access was denied — EventKit returns empty rather than erroring
 			checks.push({
 				name: "Reminders access",
 				status: "fail",
-				message: "Not granted",
-				detail: "Grant in System Settings > Privacy & Security > Reminders",
+				message: "Not granted (0 lists returned)",
+				detail: "Run: remi authorize",
 			});
 		}
-	} catch {
+	} catch (err) {
+		const errMsg = err instanceof Error ? err.message : "";
 		checks.push({
 			name: "Reminders access",
-			status: "warn",
-			message: "Could not verify (may need to grant access on first use)",
+			status: "fail",
+			message: errMsg.includes("denied") ? "Not granted" : `Error: ${errMsg}`,
+			detail: "Run: remi authorize",
 		});
 	}
 

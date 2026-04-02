@@ -149,6 +149,22 @@ npx skills add mattheworiordan/remi
 
 Then agents can manage reminders via `/remi` or by using the CLI directly with `--json`.
 
+## Permissions
+
+macOS grants permissions to your **terminal app** (Terminal, iTerm, Cursor, VS Code, etc.), not to remi directly. You only need to do this once per terminal app.
+
+```bash
+remi authorize    # Guides you through granting permissions
+remi doctor       # Shows what's granted and what's missing
+```
+
+| Permission | What it enables | How to grant |
+|------------|----------------|--------------|
+| **Reminders access** | All reminder operations | System dialog on first run — click Allow |
+| **Full Disk Access** | Section features (create-section, move, etc.) | System Settings > Privacy & Security > Full Disk Access — add your terminal app |
+
+Most developer terminals (iTerm, Ghostty, VS Code) already have Full Disk Access. If you only need basic reminder operations (no sections), Reminders access alone is sufficient.
+
 ## How it works
 
 remi uses a three-layer architecture to interact with Apple Reminders:
