@@ -582,6 +582,18 @@ class DBHelper {
             "modificationTime": coreDataTimestamp,
             "replicaID": replicaID
         ]
+
+        // Also increment reminderIDsMergeableOrdering — remindd appears to use this
+        // as the trigger to push the full record including membership data.
+        // Without this, membership-only changes don't propagate to other devices.
+        let orderingKey = "reminderIDsMergeableOrdering"
+        if var orderingEntry = mapDict[orderingKey] as? [String: Any],
+           let orderingCounter = orderingEntry["counter"] as? Int {
+            orderingEntry["counter"] = orderingCounter + 1
+            orderingEntry["modificationTime"] = coreDataTimestamp
+            mapDict[orderingKey] = orderingEntry
+        }
+
         tokenMap["map"] = mapDict
 
         guard let tokenMapData = try? JSONSerialization.data(withJSONObject: tokenMap, options: [.sortedKeys]),
@@ -645,26 +657,24 @@ class DBHelper {
         if syncGranted {
             let calendars = eventStore.calendars(for: .reminder)
             if let calendar = calendars.first(where: { $0.title == listName }) {
-                let predicate = eventStore.predicateForIncompleteReminders(
-                    withDueDateStarting: nil, ending: nil, calendars: [calendar])
-                var reminders: [EKReminder]?
-                let fetchSem = DispatchSemaphore(value: 0)
-                eventStore.fetchReminders(matching: predicate) { result in
-                    reminders = result
-                    fetchSem.signal()
-                }
-                fetchSem.wait()
-
-                if let reminder = reminders?.first {
-                    let currentNotes = reminder.notes ?? ""
-                    reminder.notes = currentNotes.hasSuffix(" ") ? String(currentNotes.dropLast()) : currentNotes + " "
-                    do {
-                        try eventStore.save(reminder, commit: true)
-                    } catch {
-                        syncWarning = "Sync trigger save failed: \(error.localizedDescription)"
-                    }
-                } else {
-                    syncWarning = "No incomplete reminders to trigger sync — will sync on next natural edit"
+                // Trigger a LIST-level sync by creating and immediately deleting a
+                // temporary reminder. This forces remindd to update the list's
+                // reminderIDsMergeableOrdering, which triggers a full list record push
+                // including our membership data.
+                //
+                // Why not just edit a reminder's notes? That only triggers a reminder-level
+                // push, not a list-level push. remindd doesn't check the list's token map
+                // when only a reminder changed.
+                let tempReminder = EKReminder(eventStore: eventStore)
+                tempReminder.title = "_remi_sync_trigger_\(UUID().uuidString.prefix(8))"
+                tempReminder.calendar = calendar
+                do {
+                    try eventStore.save(tempReminder, commit: true)
+                    // Small delay to ensure remindd processes the creation
+                    Thread.sleep(forTimeInterval: 0.3)
+                    try eventStore.remove(tempReminder, commit: true)
+                } catch {
+                    syncWarning = "Sync trigger failed: \(error.localizedDescription)"
                 }
             } else {
                 syncWarning = "List not found via EventKit for sync trigger"
