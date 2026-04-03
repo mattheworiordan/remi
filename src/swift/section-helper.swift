@@ -528,7 +528,7 @@ class DBHelper {
             outputJSON(["success": false, "error": "Database not found"])
             return
         }
-        defer { sqlite3_close(db) }
+        // Note: we close db explicitly before sync trigger, not via defer
 
         guard let listPk = findList(listName) else {
             outputJSON(["success": false, "error": "List '\(listName)' not found in database"])
@@ -622,6 +622,14 @@ class DBHelper {
             outputJSON(["success": false, "error": "Failed to write membership data"])
             return
         }
+
+        // CRITICAL: Close the database BEFORE triggering sync.
+        // remindd needs to read our WAL changes, which requires the connection to be closed
+        // so the WAL is checkpointed and visible to other processes.
+        sqlite3_close(db)
+
+        // Small delay to ensure WAL checkpoint completes
+        Thread.sleep(forTimeInterval: 0.5)
 
         // Trigger sync via EventKit (don't output from triggerSync — we handle output here)
         let eventStore = EKEventStore()
