@@ -561,13 +561,28 @@ class DBHelper {
             sqlite3_finalize(readStmt)
         }
 
+        // Token map entries live INSIDE the "map" key, and each needs a replicaID
         let fieldKey = "membershipsOfRemindersInSectionsChecksum"
+        var mapDict = tokenMap["map"] as? [String: Any] ?? [:]
+
         var currentCounter = 0
-        if let existing = tokenMap[fieldKey] as? [String: Any],
-           let counter = existing["counter"] as? Int {
-            currentCounter = counter
+        var replicaID = UUID().uuidString.uppercased()
+        if let existing = mapDict[fieldKey] as? [String: Any] {
+            if let counter = existing["counter"] as? Int {
+                currentCounter = counter
+            }
+            // Preserve existing replicaID if present
+            if let existingReplicaID = existing["replicaID"] as? String {
+                replicaID = existingReplicaID
+            }
         }
-        tokenMap[fieldKey] = ["counter": currentCounter + 1, "modificationTime": coreDataTimestamp]
+
+        mapDict[fieldKey] = [
+            "counter": currentCounter + 1,
+            "modificationTime": coreDataTimestamp,
+            "replicaID": replicaID
+        ]
+        tokenMap["map"] = mapDict
 
         guard let tokenMapData = try? JSONSerialization.data(withJSONObject: tokenMap, options: [.sortedKeys]),
               let tokenMapJSON = String(data: tokenMapData, encoding: .utf8) else {
@@ -608,14 +623,53 @@ class DBHelper {
             return
         }
 
-        // Trigger sync via EventKit
-        let syncTriggered = bridge.triggerSync(listName)
-        if !syncTriggered {
-            // Check if triggerSync already output JSON (it does on most failures)
-            // For the "no reminders" case it outputs success with warning
+        // Trigger sync via EventKit (don't output from triggerSync — we handle output here)
+        let eventStore = EKEventStore()
+        let syncSem = DispatchSemaphore(value: 0)
+        var syncGranted = false
+        eventStore.requestFullAccessToReminders { granted, _ in
+            syncGranted = granted
+            syncSem.signal()
+        }
+        syncSem.wait()
+
+        var syncWarning: String? = nil
+        if syncGranted {
+            let calendars = eventStore.calendars(for: .reminder)
+            if let calendar = calendars.first(where: { $0.title == listName }) {
+                let predicate = eventStore.predicateForIncompleteReminders(
+                    withDueDateStarting: nil, ending: nil, calendars: [calendar])
+                var reminders: [EKReminder]?
+                let fetchSem = DispatchSemaphore(value: 0)
+                eventStore.fetchReminders(matching: predicate) { result in
+                    reminders = result
+                    fetchSem.signal()
+                }
+                fetchSem.wait()
+
+                if let reminder = reminders?.first {
+                    let currentNotes = reminder.notes ?? ""
+                    reminder.notes = currentNotes.hasSuffix(" ") ? String(currentNotes.dropLast()) : currentNotes + " "
+                    do {
+                        try eventStore.save(reminder, commit: true)
+                    } catch {
+                        syncWarning = "Sync trigger save failed: \(error.localizedDescription)"
+                    }
+                } else {
+                    syncWarning = "No incomplete reminders to trigger sync — will sync on next natural edit"
+                }
+            } else {
+                syncWarning = "List not found via EventKit for sync trigger"
+            }
+        } else {
+            syncWarning = "Reminders access denied for sync trigger"
         }
 
-        outputJSON(["success": true, "message": "Memberships written and sync triggered for '\(listName)'"])
+        if let warning = syncWarning {
+            outputJSON(["success": true, "message": "Memberships written for '\(listName)'", "warning": warning])
+        } else {
+            outputJSON(["success": true, "message": "Memberships written and sync triggered for '\(listName)'"])
+        }
     }
 }
 
