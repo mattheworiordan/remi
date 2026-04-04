@@ -182,6 +182,15 @@ program
 // -- System --
 
 program
+	.command("demo", { hidden: true })
+	.description("Create a demo list to showcase remi features")
+	.option("--cleanup", "Remove the demo list")
+	.action(async (opts) => {
+		const { demoCommand } = await import("./commands/demo.js");
+		await demoCommand(opts);
+	});
+
+program
 	.command("authorize")
 	.description("Request Reminders access permission")
 	.action(async () => {

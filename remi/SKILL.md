@@ -1,6 +1,7 @@
 ---
 name: remi
 description: Manage Apple Reminders via CLI with section support and iCloud sync. Use when the user asks to create, list, complete, search, or organize reminders.
+metadata: {"openclaw": {"requires": {"bins": ["remi"]}, "install": {"brew": "mattheworiordan/tap/remi", "node": "@mattheworiordan/remi"}}}
 ---
 
 # remi — Apple Reminders CLI

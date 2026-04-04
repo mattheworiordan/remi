@@ -1,5 +1,6 @@
 import * as eventkit from "../../core/eventkit.js";
 import { findReminderByTitle } from "../../core/lookup.js";
+import { resolveListName } from "../../core/resolve.js";
 import { outputMessage } from "../output.js";
 
 export async function completeCommand(
@@ -7,7 +8,8 @@ export async function completeCommand(
 	title: string,
 	opts: { id?: string },
 ): Promise<void> {
-	const reminder = await findReminderByTitle(list, title, opts);
+	const listName = await resolveListName(list);
+	const reminder = await findReminderByTitle(listName, title, opts);
 	await eventkit.completeReminder(reminder.id);
-	outputMessage(`Completed "${reminder.title}" in "${list}"`);
+	outputMessage(`Completed "${reminder.title}" in "${listName}"`);
 }

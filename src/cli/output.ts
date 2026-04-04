@@ -137,6 +137,8 @@ interface OutputRemindersOpts {
 	showList?: boolean;
 	/** Sort by due date */
 	sortByDate?: boolean;
+	/** Group reminders by section (shows section headers) */
+	groupBySections?: boolean;
 }
 
 /** Format and output a list of reminders */
@@ -184,13 +186,47 @@ export function outputReminders(
 		process.stdout.write(`${"─".repeat(listName.length + 2)}\n`);
 	}
 
-	for (const r of sorted) {
-		process.stdout.write(formatReminderLine(r, opts));
+	// Group by sections if requested and sections exist
+	if (opts?.groupBySections && sorted.some((r) => r.section)) {
+		// Collect unique sections in order of first appearance
+		const sectionOrder: string[] = [];
+		for (const r of sorted) {
+			if (r.section && !sectionOrder.includes(r.section)) {
+				sectionOrder.push(r.section);
+			}
+		}
+
+		// Render each section
+		for (const section of sectionOrder) {
+			process.stdout.write(`\n ${chalk.bold.underline(section)}\n`);
+			const sectionReminders = sorted.filter((r) => r.section === section);
+			for (const r of sectionReminders) {
+				process.stdout.write(formatReminderLine(r, { ...opts, hideSection: true }));
+			}
+		}
+
+		// Render unsectioned items
+		const unsectioned = sorted.filter((r) => !r.section);
+		if (unsectioned.length > 0) {
+			if (sectionOrder.length > 0) {
+				process.stdout.write(`\n ${chalk.dim.underline("Others")}\n`);
+			}
+			for (const r of unsectioned) {
+				process.stdout.write(formatReminderLine(r, opts));
+			}
+		}
+	} else {
+		for (const r of sorted) {
+			process.stdout.write(formatReminderLine(r, opts));
+		}
 	}
 	process.stdout.write("\n");
 }
 
-function formatReminderLine(r: Reminder, opts?: OutputRemindersOpts): string {
+function formatReminderLine(
+	r: Reminder,
+	opts?: OutputRemindersOpts & { hideSection?: boolean },
+): string {
 	const checkbox = r.isCompleted ? chalk.green("✓") : chalk.dim("○");
 	const title = r.isCompleted ? chalk.strikethrough(chalk.dim(r.title)) : r.title;
 
@@ -234,7 +270,7 @@ function formatReminderLine(r: Reminder, opts?: OutputRemindersOpts): string {
 	}
 
 	// Section (only in list context, not cross-list views)
-	if (r.section) {
+	if (r.section && !opts?.hideSection) {
 		badges.push(chalk.cyan(`[${r.section}]`));
 	}
 
