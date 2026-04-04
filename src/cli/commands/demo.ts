@@ -144,14 +144,14 @@ export async function demoCommand(opts: { cleanup?: boolean }): Promise<void> {
 		process.stdout.write(
 			`\n${chalk.green("✓")} Demo list created with ${items.length} reminders and ${sections.length} sections.\n`,
 		);
-		process.stdout.write(chalk.dim(`\nTry these:\n`));
-		process.stdout.write(chalk.dim(`  remi list demo\n`));
-		process.stdout.write(chalk.dim(`  remi sections demo\n`));
+		process.stdout.write(chalk.dim("\nTry these:\n"));
+		process.stdout.write(chalk.dim("  remi list demo\n"));
+		process.stdout.write(chalk.dim("  remi sections demo\n"));
 		process.stdout.write(chalk.dim(`  remi complete demo "Book dentist appointment"\n`));
 		process.stdout.write(
 			chalk.dim(`  remi move demo "Learn to make sourdough bread" --to-section "This Week"\n`),
 		);
-		process.stdout.write(chalk.dim(`  remi demo --cleanup   (when done)\n\n`));
+		process.stdout.write(chalk.dim("  remi demo --cleanup   (when done)\n\n"));
 	} else {
 		outputMessage(
 			`Demo list created with ${items.length} reminders and ${sections.length} sections`,

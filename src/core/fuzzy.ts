@@ -49,7 +49,7 @@ export function fuzzyFind<T>(
 		throw new RemiCommandError(
 			ErrorCode.AMBIGUOUS_REMINDER,
 			`"${query}" matches multiple ${itemType}s:\n${names}`,
-			`Be more specific, or use the full name`,
+			"Be more specific, or use the full name",
 		);
 	}
 
