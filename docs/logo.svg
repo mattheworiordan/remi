@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Bold, modern: terminal window with checkmark -->
+  <rect width="120" height="120" rx="24" fill="#1a1a2e"/>
+  <!-- Terminal window dots -->
+  <circle cx="24" cy="20" r="5" fill="#FF5F57"/>
+  <circle cx="40" cy="20" r="5" fill="#FEBC2E"/>
+  <circle cx="56" cy="20" r="5" fill="#28C840"/>
+  <!-- Terminal line separator -->
+  <line x1="12" y1="32" x2="108" y2="32" stroke="#333" stroke-width="1"/>
+  <!-- Prompt arrow -->
+  <path d="M 20 55 L 38 68 L 20 81" stroke="#007AFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Checkmark -->
+  <path d="M 50 68 L 65 83 L 98 45" stroke="#28C840" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
