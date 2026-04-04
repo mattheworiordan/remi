@@ -1,6 +1,6 @@
 {
   "name": "@mattheworiordan/remi",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fast, reliable CLI for Apple Reminders with section support and iCloud sync",
   "type": "module",
   "bin": {
