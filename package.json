@@ -16,8 +16,15 @@
     "lint": "biome check src/ tests/",
     "lint:fix": "biome check --write src/ tests/",
     "build:swift": "bash src/swift/build.sh",
-    "prepare": "npm run build:swift"
+    "prepublishOnly": "npm run build && npm run build:swift",
+    "postinstall": "npm run build:swift || echo 'Swift build skipped (non-macOS or missing Xcode tools)'"
   },
+  "files": [
+    "dist/",
+    "src/swift/",
+    "LICENSE",
+    "README.md"
+  ],
   "keywords": [
     "apple-reminders",
     "reminders",
