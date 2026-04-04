@@ -101,7 +101,24 @@ remi today --json
 
 ## AI agent integration
 
-remi is designed for AI agents. Install as a skill or plugin, and agents can manage your reminders:
+remi is designed for AI agents. Use it as an MCP server, Claude Code plugin, or skill:
+
+### MCP server
+
+```json
+{
+  "mcpServers": {
+    "remi": {
+      "command": "remi",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+16 tools: `remi_lists`, `remi_add`, `remi_complete`, `remi_move`, `remi_today`, `remi_search`, and more — all with fuzzy matching and structured responses.
+
+### Other integrations
 
 ```bash
 # Claude Code plugin
