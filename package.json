@@ -5,7 +5,7 @@
   "description": "Fast, reliable CLI for Apple Reminders with section support and iCloud sync",
   "type": "module",
   "bin": {
-    "remi": "./dist/cli/index.js"
+    "remi": "dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc && chmod +x dist/cli/index.js",
@@ -40,7 +40,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mattheworiordan/remi.git"
+    "url": "git+https://github.com/mattheworiordan/remi.git"
   },
   "engines": {
     "node": ">=18",
