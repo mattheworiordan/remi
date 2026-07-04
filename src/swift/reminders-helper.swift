@@ -597,7 +597,80 @@ func deleteList(_ store: EKEventStore, _ args: DeleteListArgs) {
     }
 }
 
+// MARK: - Responsible-process disclaim
+
+// Private-but-stable Darwin API used by Terminal.app, iTerm, LLDB, Chromium and
+// Firefox to make a spawned process its own TCC "responsible process".
+@_silgen_name("responsibility_spawnattrs_setdisclaim")
+func responsibility_spawnattrs_setdisclaim(
+    _ attrs: UnsafeMutablePointer<posix_spawnattr_t?>,
+    _ disclaim: Int32
+) -> Int32
+
+/// Re-exec this helper once so it becomes its own TCC responsible process.
+///
+/// When remi is launched by a non-terminal parent (an Electron app such as
+/// VS Code / Cursor / Super Productivity, `launchd`, or an AI agent), macOS
+/// attributes the helper's Reminders request to that parent instead of to
+/// remi. Parents that lack the Reminders usage string are silently denied,
+/// with no prompt and no error. Terminals avoid this by disclaiming
+/// responsibility for their children; we do the same for ourselves.
+///
+/// Fails open: on any error we simply return and run in-process, so this can
+/// never make matters worse than the current behaviour. Opt out entirely with
+/// `REMI_NO_DISCLAIM=1`.
+func disclaimResponsibilityIfNeeded() {
+    let env = ProcessInfo.processInfo.environment
+    if env["REMI_NO_DISCLAIM"] == "1" { return } // explicit opt-out
+    if env["REMI_DISCLAIMED"] == "1" { return } // already re-exec'd: avoid a loop
+
+    // Resolve the path of the running executable.
+    var size: UInt32 = 0
+    _NSGetExecutablePath(nil, &size)
+    var buf = [CChar](repeating: 0, count: Int(size))
+    guard _NSGetExecutablePath(&buf, &size) == 0 else { return }
+    let selfPath = String(cString: buf)
+
+    // Only a compiled binary carries the embedded Info.plist that makes the
+    // disclaimed identity useful. Skip the interpreted `swift reminders-helper.swift`
+    // dev path, which would otherwise re-exec the interpreter itself.
+    let base = (selfPath as NSString).lastPathComponent
+    if base == "swift" || base == "swift-frontend" || selfPath.hasPrefix("/usr/bin/swift") {
+        return
+    }
+
+    var attrs: posix_spawnattr_t?
+    guard posix_spawnattr_init(&attrs) == 0 else { return }
+    defer { posix_spawnattr_destroy(&attrs) }
+    guard responsibility_spawnattrs_setdisclaim(&attrs, 1) == 0 else { return }
+
+    var cArgs: [UnsafeMutablePointer<CChar>?] = CommandLine.arguments.map { strdup($0) }
+    cArgs.append(nil)
+    var childEnv = env
+    childEnv["REMI_DISCLAIMED"] = "1"
+    var cEnv: [UnsafeMutablePointer<CChar>?] = childEnv.map { strdup("\($0.key)=\($0.value)") }
+    cEnv.append(nil)
+    defer {
+        for p in cArgs where p != nil { free(p) }
+        for p in cEnv where p != nil { free(p) }
+    }
+
+    var pid: pid_t = 0
+    let rc = posix_spawn(&pid, selfPath, nil, &attrs, cArgs, cEnv)
+    guard rc == 0 else { return } // spawn failed: run in place
+
+    var status: Int32 = 0
+    waitpid(pid, &status, 0)
+    if (status & 0x7f) == 0 {
+        exit((status >> 8) & 0xff) // normal exit: forward child's code
+    } else {
+        exit(128 + (status & 0x7f)) // killed by signal
+    }
+}
+
 // MARK: - Main
+
+disclaimResponsibilityIfNeeded()
 
 let store = EKEventStore()
 let sem = DispatchSemaphore(value: 0)
