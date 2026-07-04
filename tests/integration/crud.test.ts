@@ -131,6 +131,36 @@ describe("CRUD integration", () => {
 		expect(item?.priority).toBe("low");
 	}, 45000);
 
+	it("update sets and clears recurrence", async () => {
+		// Set recurrence on an existing non-recurring reminder.
+		const setResult = await remi("update", listName, "Updated task", "--repeat", "weekly");
+		expect(setResult.success).toBe(true);
+
+		const afterSet = await remi("list", listName);
+		const setReminders = afterSet.data as Array<{
+			title: string;
+			isRecurring: boolean;
+			recurrence?: string;
+		}>;
+		const setItem = setReminders.find((r) => r.title === "Updated task");
+		expect(setItem).toBeDefined();
+		expect(setItem?.isRecurring).toBe(true);
+		expect(setItem?.recurrence).toBe("weekly");
+
+		// Clear the recurrence.
+		const clearResult = await remi("update", listName, "Updated task", "--clear-repeat");
+		expect(clearResult.success).toBe(true);
+
+		const afterClear = await remi("list", listName);
+		const clearReminders = afterClear.data as Array<{
+			title: string;
+			isRecurring: boolean;
+		}>;
+		const clearItem = clearReminders.find((r) => r.title === "Updated task");
+		expect(clearItem).toBeDefined();
+		expect(clearItem?.isRecurring).toBe(false);
+	}, 45000);
+
 	it("search finds reminders across lists", async () => {
 		const result = await remi("search", "Updated task");
 		expect(result.success).toBe(true);

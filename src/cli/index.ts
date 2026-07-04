@@ -120,6 +120,8 @@ async function runCli() {
 		.option("--clear-due", "Remove due date")
 		.option("--priority <level>", "New priority: none, low, medium, high")
 		.option("--notes <text>", "New notes")
+		.option("--repeat <rule>", 'Recurrence: "daily", "weekly", "every 2 weeks", "every 3 months"')
+		.option("--clear-repeat", "Remove recurrence")
 		.action(async (list: string, title: string, opts) => {
 			const { updateCommand } = await import("./commands/update.js");
 			await updateCommand(list, title, opts);
