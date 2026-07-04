@@ -163,7 +163,7 @@ export async function createReminder(opts: {
 	return runSwiftCommand<string>("create", opts);
 }
 
-export async function editReminder(opts: {
+export type EditReminderOptions = {
 	id: string;
 	title?: string;
 	listName?: string;
@@ -171,7 +171,14 @@ export async function editReminder(opts: {
 	clearDue?: boolean;
 	notes?: string;
 	priority?: string;
-}): Promise<string> {
+	rruleFreq?: string;
+	rruleInterval?: number;
+	rruleDays?: number[];
+	rruleEnd?: string;
+	clearRepeat?: boolean;
+};
+
+export async function editReminder(opts: EditReminderOptions): Promise<string> {
 	return runSwiftCommand<string>("edit", opts);
 }
 

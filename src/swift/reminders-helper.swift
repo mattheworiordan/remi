@@ -355,6 +355,58 @@ func searchReminders(_ store: EKEventStore, _ args: SearchArgs) {
     sem.wait()
 }
 
+enum RecurrenceError: Error {
+    case invalidFrequency(String)
+}
+
+/// Build an EKRecurrenceRule from remi's rrule* parameters.
+/// Shared by `create` and `edit` so recurrence handling stays in one place.
+func makeRecurrenceRule(freqStr: String, interval: Int?, days: [Int]?, end: String?) throws -> EKRecurrenceRule {
+    let freq: EKRecurrenceFrequency
+    switch freqStr.uppercased() {
+    case "DAILY": freq = .daily
+    case "WEEKLY": freq = .weekly
+    case "MONTHLY": freq = .monthly
+    case "YEARLY": freq = .yearly
+    default:
+        throw RecurrenceError.invalidFrequency(freqStr)
+    }
+
+    var daysOfWeek: [EKRecurrenceDayOfWeek]? = nil
+    if let days = days, !days.isEmpty {
+        daysOfWeek = days.compactMap { dayNum -> EKRecurrenceDayOfWeek? in
+            guard let weekday = EKWeekday(rawValue: dayNum) else { return nil }
+            return EKRecurrenceDayOfWeek(weekday)
+        }
+    }
+
+    var recurrenceEnd: EKRecurrenceEnd? = nil
+    if let endStr = end, let endDate = dateFormatter.date(from: endStr) {
+        recurrenceEnd = EKRecurrenceEnd(end: endDate)
+    }
+
+    return EKRecurrenceRule(
+        recurrenceWith: freq,
+        interval: interval ?? 1,
+        daysOfTheWeek: daysOfWeek,
+        daysOfTheMonth: nil,
+        monthsOfTheYear: nil,
+        weeksOfTheYear: nil,
+        daysOfTheYear: nil,
+        setPositions: nil,
+        end: recurrenceEnd
+    )
+}
+
+/// Remove every recurrence rule currently attached to a reminder.
+func clearRecurrenceRules(_ reminder: EKReminder) {
+    if let existing = reminder.recurrenceRules {
+        for rule in existing {
+            reminder.removeRecurrenceRule(rule)
+        }
+    }
+}
+
 struct CreateArgs: Decodable {
     let title: String
     let listName: String
@@ -389,43 +441,21 @@ func createReminder(_ store: EKEventStore, _ args: CreateArgs) {
 
     // Set recurrence if specified
     if let freqStr = args.rruleFreq {
-        let freq: EKRecurrenceFrequency
-        switch freqStr.uppercased() {
-        case "DAILY": freq = .daily
-        case "WEEKLY": freq = .weekly
-        case "MONTHLY": freq = .monthly
-        case "YEARLY": freq = .yearly
-        default:
-            output(ResultResponse(success: false, data: nil, error: "Invalid frequency: \(freqStr). Use: daily, weekly, monthly, yearly"))
+        do {
+            let rule = try makeRecurrenceRule(
+                freqStr: freqStr,
+                interval: args.rruleInterval,
+                days: args.rruleDays,
+                end: args.rruleEnd
+            )
+            reminder.addRecurrenceRule(rule)
+        } catch RecurrenceError.invalidFrequency(let f) {
+            output(ResultResponse(success: false, data: nil, error: "Invalid frequency: \(f). Use: daily, weekly, monthly, yearly"))
+            return
+        } catch {
+            output(ResultResponse(success: false, data: nil, error: "Recurrence error: \(error.localizedDescription)"))
             return
         }
-        let interval = args.rruleInterval ?? 1
-
-        var daysOfWeek: [EKRecurrenceDayOfWeek]? = nil
-        if let days = args.rruleDays, !days.isEmpty {
-            daysOfWeek = days.compactMap { dayNum -> EKRecurrenceDayOfWeek? in
-                guard let weekday = EKWeekday(rawValue: dayNum) else { return nil }
-                return EKRecurrenceDayOfWeek(weekday)
-            }
-        }
-
-        var recurrenceEnd: EKRecurrenceEnd? = nil
-        if let endStr = args.rruleEnd, let endDate = dateFormatter.date(from: endStr) {
-            recurrenceEnd = EKRecurrenceEnd(end: endDate)
-        }
-
-        let rule = EKRecurrenceRule(
-            recurrenceWith: freq,
-            interval: interval,
-            daysOfTheWeek: daysOfWeek,
-            daysOfTheMonth: nil,
-            monthsOfTheYear: nil,
-            weeksOfTheYear: nil,
-            daysOfTheYear: nil,
-            setPositions: nil,
-            end: recurrenceEnd
-        )
-        reminder.addRecurrenceRule(rule)
     }
 
     do {
@@ -444,6 +474,12 @@ struct EditArgs: Decodable {
     let clearDue: Bool?
     let notes: String?
     let priority: String?
+    // Recurrence (optional)
+    let rruleFreq: String?    // DAILY, WEEKLY, MONTHLY, YEARLY
+    let rruleInterval: Int?   // defaults to 1
+    let rruleDays: [Int]?     // Days of week: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+    let rruleEnd: String?     // End date for recurrence (YYYY-MM-DD)
+    let clearRepeat: Bool?    // Remove all recurrence rules
 }
 
 func editReminder(_ store: EKEventStore, _ args: EditArgs) {
@@ -474,6 +510,31 @@ func editReminder(_ store: EKEventStore, _ args: EditArgs) {
             let cals = store.calendars(for: .reminder).filter { $0.title == listName }
             if let cal = cals.first {
                 reminder.calendar = cal
+            }
+        }
+
+        // Recurrence: --clear-repeat removes all rules; --repeat sets a new one
+        // (replacing any existing rules first).
+        if args.clearRepeat == true {
+            clearRecurrenceRules(reminder)
+        } else if let freqStr = args.rruleFreq {
+            clearRecurrenceRules(reminder)
+            do {
+                let rule = try makeRecurrenceRule(
+                    freqStr: freqStr,
+                    interval: args.rruleInterval,
+                    days: args.rruleDays,
+                    end: args.rruleEnd
+                )
+                reminder.addRecurrenceRule(rule)
+            } catch RecurrenceError.invalidFrequency(let f) {
+                output(ResultResponse(success: false, data: nil, error: "Invalid frequency: \(f). Use: daily, weekly, monthly, yearly"))
+                sem.signal()
+                return
+            } catch {
+                output(ResultResponse(success: false, data: nil, error: "Recurrence error: \(error.localizedDescription)"))
+                sem.signal()
+                return
             }
         }
 
